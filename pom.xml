@@ -1,0 +1,158 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jdriven.blog.com.github.vojtajina</groupId>
+    <artifactId>ng-directive-testing</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <properties>
+        <sonar.language>js</sonar.language>
+        <sonar.exclusions>lib/**</sonar.exclusions>
+        <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+        <sonar.javascript.lcov.reportPath>target/lcov.info</sonar.javascript.lcov.reportPath>
+    </properties>
+
+    <build>
+        <sourceDirectory>${basedir}/js</sourceDirectory>
+        <testSourceDirectory>${basedir}/test</testSourceDirectory>
+
+        <plugins>
+
+            <!--
+                Karma (JavaSrcipt) test runner integration with LCOV coverage reporting
+            -->
+            <plugin>
+                <groupId>com.kelveden</groupId>
+                <artifactId>maven-karma-plugin</artifactId>
+                <version>1.3</version>
+
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>start</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <configFile>${basedir}/target/karma-coverage-lcov.conf.js</configFile>
+                    <browsers>PhantomJS</browsers>
+                    <reporters>dots,coverage</reporters>
+                    <colors>false</colors>
+                    <autoWatch>false</autoWatch>
+                </configuration>
+            </plugin>
+
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.7</version>
+
+                <executions>
+
+                    <!-- Generates a Karma configuration file (in "target/karma-coverage-html.conf.js") for
+                         HTML test coverage reporting while using Karma (outside the Maven build) on the command-line or
+                         from within WebStorm / IntelliJ IDEA -->
+                    <execution>
+                        <id>karma-coverage-html.conf.js</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+
+                        <configuration>
+                            <target>
+                                <copy file="${basedir}/karma.conf.js"
+                                    tofile="${basedir}/target/karma-coverage-html.conf.js" />
+
+                                <replaceregexp byline="true" file="${basedir}/target/karma-coverage-html.conf.js"
+                                    match="basePath\p{Blank}*=\p{Blank}*'';" replace="basePath = '..';" />
+                                <replaceregexp byline="true" file="${basedir}/target/karma-coverage-html.conf.js"
+                                    match="//(\p{Blank}*'.*'\p{Blank}*:\p{Blank}*'coverage'\p{Blank}*)" replace="\1" />
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- Generates a Karma configuration file (in "target/karma-coverage-lcov.conf.js") for
+                         LCOV test coverage reporting while running the Karma test runner during a Maven build -->
+                    <execution>
+                        <id>karma-coverage-lcov.conf.js</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+
+                        <configuration>
+                            <target>
+                                <copy file="${basedir}/karma.conf.js"
+                                    tofile="${basedir}/target/karma-coverage-lcov.conf.js" />
+
+                                <replaceregexp byline="true" file="${basedir}/target/karma-coverage-lcov.conf.js"
+                                    match="basePath\p{Blank}*=\p{Blank}*'';" replace="basePath = '..';" />
+                                <replaceregexp byline="true" file="${basedir}/target/karma-coverage-lcov.conf.js"
+                                    match="type\p{Blank}*:\p{Blank}*'html'," replace="type: 'lcovonly'," />
+                                <replaceregexp byline="true" file="${basedir}/target/karma-coverage-lcov.conf.js"
+                                    match="\p{Blank}*//(\p{Blank}*'.*'\p{Blank}*:\p{Blank}*'coverage'\p{Blank}*)" replace="\1" />
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- Copies the LCOV file (generated by the Karma test runner) to "target/lcov.info"
+                         and fix it so that Sonar can successfully process it (including branch coverage) -->
+                    <execution>
+                        <id>copy-and-fix-lcov-file-for-sonar</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+
+                        <configuration>
+                            <skip>${skipTests}</skip>
+
+                            <target>
+                                <copy todir="target" flatten="true">
+                                    <fileset dir="target">
+                                        <include name="karma-coverage/PhantomJS*/lcov.info" />
+                                    </fileset>
+                                </copy>
+
+                                <path id="sourceDirectory.path">
+                                  <pathelement location="${project.build.sourceDirectory}"/>
+                                </path>
+
+                                <pathconvert targetos="unix" property="relativeSourceDirectory" refid="sourceDirectory.path">
+                                  <map from="${basedir}/" to=""/>
+                                </pathconvert>
+
+                                <!-- strip away the ./src/main/javascript/ prefix of each file name path -->
+                                <replaceregexp byline="true">
+                                    <regexp pattern="SF:\./${relativeSourceDirectory}/(.*)" />
+                                    <substitution expression="SF:\1" />
+                                    <fileset dir="target">
+                                        <include name="lcov.info" />
+                                    </fileset>
+                                </replaceregexp>
+
+                                <!-- correct the last number of each "BRDA" line to "always" be 1 if it's 1 or higher;
+                                     without this "hack" the branch coverage is "not" properly reported by Sonar -->
+                                <replaceregexp byline="true">
+                                    <regexp pattern="BRDA:(\p{Digit}+),(\p{Digit}+),(\p{Digit}+),[1-9]\p{Digit}*" />
+                                    <substitution expression="BRDA:\1,\2,\3,1" />
+                                    <fileset dir="target">
+                                        <include name="lcov.info" />
+                                    </fileset>
+                                </replaceregexp>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+
+        </plugins>
+
+    </build>
+
+</project>

@@ -1,5 +1,4 @@
-// Testacular configuration
-// Generated on Tue Aug 14 2012 20:05:21 GMT-0700 (PDT)
+// Karma test runner configuration
 
 
 // base path, that will be used to resolve files and exclude
@@ -28,12 +27,18 @@ files = [
 
 // generate js files from html templates
 preprocessors = {
-  'tpl/*.html': 'html2js'
+  'tpl/*.html': 'html2js',
+
+  //'js/*.js': 'coverage'
 };
 
 // list of files to exclude
 exclude = [];
 
+coverageReporter = {
+  type : 'html',
+  dir : 'target/karma-coverage'
+}
 
 // test results reporter to use
 // possible values: dots || progress
