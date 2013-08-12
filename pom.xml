@@ -38,7 +38,7 @@
                 <configuration>
                     <configFile>${basedir}/target/karma-coverage-lcov.conf.js</configFile>
                     <browsers>PhantomJS</browsers>
-                    <reporters>dots,coverage</reporters>
+                    <reporters>dots,junit,coverage</reporters>
                     <colors>false</colors>
                     <autoWatch>false</autoWatch>
                 </configuration>
